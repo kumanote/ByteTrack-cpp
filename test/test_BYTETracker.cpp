@@ -9,36 +9,29 @@
 
 #include <cstddef>
 
-namespace
-{
+namespace {
     constexpr double EPS = 1e-2;
 
     const std::string D_RESULTS_FILE = "detection_results.json";
     const std::string T_RESULTS_FILE = "tracking_results.json";
 
     // key: track_id, value: rect of tracking object
-    using BYTETrackerOut = std::map<size_t, byte_track::Rect<float>>;
+    using BYTETrackerOut = std::map<size_t, byte_track::Rect<float> >;
 
-    template <typename T>
-    T get_data(const boost::property_tree::ptree &pt, const std::string &key)
-    {
+    template<typename T>
+    T get_data(const boost::property_tree::ptree &pt, const std::string &key) {
         T ret;
-        if (boost::optional<T> data = pt.get_optional<T>(key))
-        {
+        if (boost::optional<T> data = pt.get_optional<T>(key)) {
             ret = data.get();
-        }
-        else
-        {
+        } else {
             throw std::runtime_error("Could not read the data from ptree: [key: " + key + "]");
         }
         return ret;
     }
 
-    std::map<size_t, std::vector<byte_track::Object>> get_inputs_ref(const boost::property_tree::ptree &pt)
-    {
-        std::map<size_t, std::vector<byte_track::Object>> inputs_ref;
-        BOOST_FOREACH (const boost::property_tree::ptree::value_type &child, pt.get_child("results"))
-        {
+    std::map<size_t, std::vector<byte_track::Object> > get_inputs_ref(const boost::property_tree::ptree &pt) {
+        std::map<size_t, std::vector<byte_track::Object> > inputs_ref;
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type &child, pt.get_child("results")) {
             const boost::property_tree::ptree &result = child.second;
             const auto frame_id = get_data<int>(result, "frame_id");
             const auto prob = get_data<float>(result, "prob");
@@ -48,12 +41,9 @@ namespace
             const auto height = get_data<float>(result, "height");
 
             decltype(inputs_ref)::iterator itr = inputs_ref.find(frame_id);
-            if (itr != inputs_ref.end())
-            {
+            if (itr != inputs_ref.end()) {
                 itr->second.emplace_back(byte_track::Rect(x, y, width, height), 0, prob);
-            }
-            else
-            {
+            } else {
                 std::vector<byte_track::Object> v(1, {byte_track::Rect(x, y, width, height), 0, prob});
                 inputs_ref.emplace_hint(inputs_ref.end(), frame_id, v);
             }
@@ -61,11 +51,9 @@ namespace
         return inputs_ref;
     }
 
-    std::map<size_t, BYTETrackerOut> get_outputs_ref(const boost::property_tree::ptree &pt)
-    {
+    std::map<size_t, BYTETrackerOut> get_outputs_ref(const boost::property_tree::ptree &pt) {
         std::map<size_t, BYTETrackerOut> outputs_ref;
-        BOOST_FOREACH (const boost::property_tree::ptree::value_type &child, pt.get_child("results"))
-        {
+        BOOST_FOREACH(const boost::property_tree::ptree::value_type &child, pt.get_child("results")) {
             const boost::property_tree::ptree &result = child.second;
             const auto frame_id = get_data<int>(result, "frame_id");
             const auto track_id = get_data<int>(result, "track_id");
@@ -75,12 +63,9 @@ namespace
             const auto height = get_data<float>(result, "height");
 
             decltype(outputs_ref)::iterator itr = outputs_ref.find(frame_id);
-            if (itr != outputs_ref.end())
-            {
+            if (itr != outputs_ref.end()) {
                 itr->second.emplace(track_id, byte_track::Rect<float>(x, y, width, height));
-            }
-            else
-            {
+            } else {
                 BYTETrackerOut v{
                     {track_id, byte_track::Rect<float>(x, y, width, height)},
                 };
@@ -91,26 +76,24 @@ namespace
     }
 }
 
-TEST(ByteTrack, BYTETracker)
-{
+TEST(ByteTrack, BYTETracker) {
     boost::property_tree::ptree pt_d_results;
     boost::property_tree::read_json(D_RESULTS_FILE, pt_d_results);
 
     boost::property_tree::ptree pt_t_results;
     boost::property_tree::read_json(T_RESULTS_FILE, pt_t_results);
 
-    try
-    {
+    try {
         // Get infomation of reference data
         const auto detection_results_name = get_data<std::string>(pt_d_results, "name");
         const auto tracking_results_name = get_data<std::string>(pt_t_results, "name");
         const auto fps = get_data<int>(pt_d_results, "fps");
         const auto track_buffer = get_data<int>(pt_d_results, "track_buffer");
 
-        if (detection_results_name != tracking_results_name)
-        {
-            throw std::runtime_error("The name of the tests are different: [detection_results_name: " + detection_results_name + 
-                                     ", tracking_results_name: " + tracking_results_name + "]");
+        if (detection_results_name != tracking_results_name) {
+            throw std::runtime_error(
+                "The name of the tests are different: [detection_results_name: " + detection_results_name +
+                ", tracking_results_name: " + tracking_results_name + "]");
         }
 
         // Get input reference data from D_RESULTS_FILE
@@ -121,14 +104,12 @@ TEST(ByteTrack, BYTETracker)
 
         // Test BYTETracker::update()
         byte_track::BYTETracker tracker(fps, track_buffer);
-        for (const auto &[frame_id, objects] : inputs_ref)
-        {
+        for (const auto &[frame_id, objects]: inputs_ref) {
             const auto outputs = tracker.update(objects);
 
             // Verify between the reference data and the output of the BYTETracker impl
             EXPECT_EQ(outputs.size(), outputs_ref[frame_id].size());
-            for (const auto &outputs_per_frame : outputs)
-            {
+            for (const auto &outputs_per_frame: outputs) {
                 const auto &rect = outputs_per_frame->getRect();
                 const auto &track_id = outputs_per_frame->getTrackId();
                 const auto &ref = outputs_ref[frame_id][track_id];
@@ -138,15 +119,12 @@ TEST(ByteTrack, BYTETracker)
                 EXPECT_NEAR(ref.height(), rect.height(), EPS);
             }
         }
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         FAIL() << e.what();
     }
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
     return (RUN_ALL_TESTS());
 }
