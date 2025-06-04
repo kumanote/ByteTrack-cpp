@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 project(bytetrack)
 
-IF(NOT CMAKE_BUILD_TYPE)
-  SET(CMAKE_BUILD_TYPE Release)
-ENDIF()
+IF (NOT CMAKE_BUILD_TYPE)
+    SET(CMAKE_BUILD_TYPE Release)
+ENDIF ()
 
 MESSAGE("Build type: " ${CMAKE_BUILD_TYPE})
 
@@ -13,59 +13,67 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -MMD -Wall -Wextra -Winit-self")
 # Check C++17 support
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++17" COMPILER_SUPPORTS_CXX17)
-if(COMPILER_SUPPORTS_CXX17)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-  add_definitions(-DCOMPILEDWITHC17)
-  message(STATUS "Using flag -std=c++17.")
-else()
-  message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++17 support. Please use a different C++ compiler.")
-endif()
+if (COMPILER_SUPPORTS_CXX17)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+    add_definitions(-DCOMPILEDWITHC17)
+    message(STATUS "Using flag -std=c++17.")
+else ()
+    message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++17 support. Please use a different C++ compiler.")
+endif ()
 
 set(EIGEN_VERSION 3.3)
 find_package(Eigen3 ${EIGEN_VERSION} QUIET)
-if(NOT EIGEN3_FOUND)
-  set(BUILD_TESTING OFF CACHE INTERNAL "")
-  FetchContent_Declare(eigen
-    GIT_REPOSITORY  https://gitlab.com/libeigen/eigen.git
-    GIT_TAG         ${EIGEN_VERSION}
-    GIT_SHALLOW     ON)
-  FetchContent_MakeAvailable(eigen)
-  unset(BUILD_TESTING CACHE)
-endif()
+if (NOT EIGEN3_FOUND)
+    include(FetchContent)
+    set(BUILD_TESTING OFF CACHE INTERNAL "")
+    FetchContent_Declare(eigen
+            GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+            GIT_TAG ${EIGEN_VERSION}
+            GIT_SHALLOW ON)
+    FetchContent_MakeAvailable(eigen)
+    unset(BUILD_TESTING CACHE)
+endif ()
 
 add_library(${PROJECT_NAME} SHARED
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/BYTETracker.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/KalmanFilter.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/lapjv.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Object.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/Rect.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/STrack.cpp
-  )
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/BYTETracker.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/KalmanFilter.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/lapjv.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Object.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/Rect.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/STrack.cpp
+)
 target_include_directories(${PROJECT_NAME} PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  )
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
 
 # Build the tests if the 'BUILD_BYTETRACK_TEST' variable is set to 'ON'
 set(BUILD_BYTETRACK_TEST OFF CACHE BOOL "The flag whether to build the tests or not")
-if(BUILD_BYTETRACK_TEST)
-  enable_testing()
+if (BUILD_BYTETRACK_TEST)
+    enable_testing()
 
-  find_package(GTest QUIET)
-  if(NOT GTest_FOUND)
-    message(FATAL_ERROR "GTest not found.")
-  endif()
+    find_package(GTest QUIET)
+    if (NOT GTest_FOUND)
+        include(FetchContent)
+        FetchContent_Declare(googletest
+                GIT_REPOSITORY https://github.com/google/googletest.git
+                GIT_TAG v1.17.0
+                GIT_SHALLOW ON)
+        FetchContent_MakeAvailable(googletest)
+    endif ()
 
-  add_executable(${PROJECT_NAME}_test
-    ${CMAKE_CURRENT_SOURCE_DIR}/test/test_BYTETracker.cpp
-  )
+    find_package(Boost REQUIRED)
 
-  target_link_libraries(${PROJECT_NAME}_test
-    ${PROJECT_NAME}
-    GTest::GTest
-    GTest::Main
+    add_executable(${PROJECT_NAME}_test
+            ${CMAKE_CURRENT_SOURCE_DIR}/test/test_BYTETracker.cpp
     )
 
-  gtest_discover_tests(${PROJECT_NAME}_test
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data/YOLOX_ncnn_palace)
-endif()
+    target_link_libraries(${PROJECT_NAME}_test
+            ${PROJECT_NAME}
+            Boost::boost
+            GTest::gtest_main
+    )
+
+    gtest_discover_tests(${PROJECT_NAME}_test
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data/YOLOX_ncnn_palace)
+endif ()
