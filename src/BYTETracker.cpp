@@ -22,8 +22,7 @@ byte_track::BYTETracker::BYTETracker(const int &frame_rate,
                                                                   track_id_count_(0) {
 }
 
-byte_track::BYTETracker::~BYTETracker() {
-}
+byte_track::BYTETracker::~BYTETracker() = default;
 
 std::vector<byte_track::BYTETracker::STrackPtr> byte_track::BYTETracker::update(const std::vector<Object> &objects) {
     ////////////////// Step 1: Get detections //////////////////

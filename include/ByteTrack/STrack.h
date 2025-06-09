@@ -19,21 +19,21 @@ namespace byte_track {
 
         ~STrack();
 
-        const Rect<float> &getRect() const;
+        [[nodiscard]] const Rect<float> &getRect() const;
 
-        const STrackState &getSTrackState() const;
+        [[nodiscard]] const STrackState &getSTrackState() const;
 
-        const bool &isActivated() const;
+        [[nodiscard]] const bool &isActivated() const;
 
-        const float &getScore() const;
+        [[nodiscard]] const float &getScore() const;
 
-        const size_t &getTrackId() const;
+        [[nodiscard]] const size_t &getTrackId() const;
 
-        const size_t &getFrameId() const;
+        [[nodiscard]] const size_t &getFrameId() const;
 
-        const size_t &getStartFrameId() const;
+        [[nodiscard]] const size_t &getStartFrameId() const;
 
-        const size_t &getTrackletLength() const;
+        [[nodiscard]] const size_t &getTrackletLength() const;
 
         void activate(const size_t &frame_id, const size_t &track_id);
 

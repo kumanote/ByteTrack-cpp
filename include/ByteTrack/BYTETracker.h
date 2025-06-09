@@ -15,22 +15,22 @@ namespace byte_track {
     public:
         using STrackPtr = std::shared_ptr<STrack>;
 
-        BYTETracker(const int &frame_rate = 30,
-                    const int &track_buffer = 30,
-                    const float &track_thresh = 0.5,
-                    const float &high_thresh = 0.6,
-                    const float &match_thresh = 0.8);
+        explicit BYTETracker(const int &frame_rate = 30,
+                             const int &track_buffer = 30,
+                             const float &track_thresh = 0.5,
+                             const float &high_thresh = 0.6,
+                             const float &match_thresh = 0.8);
 
         ~BYTETracker();
 
         std::vector<STrackPtr> update(const std::vector<Object> &objects);
 
     private:
-        std::vector<STrackPtr> jointStracks(const std::vector<STrackPtr> &a_tlist,
-                                            const std::vector<STrackPtr> &b_tlist) const;
+        [[nodiscard]] std::vector<STrackPtr> jointStracks(const std::vector<STrackPtr> &a_tlist,
+                                                          const std::vector<STrackPtr> &b_tlist) const;
 
-        std::vector<STrackPtr> subStracks(const std::vector<STrackPtr> &a_tlist,
-                                          const std::vector<STrackPtr> &b_tlist) const;
+        [[nodiscard]] std::vector<STrackPtr> subStracks(const std::vector<STrackPtr> &a_tlist,
+                                                        const std::vector<STrackPtr> &b_tlist) const;
 
         void removeDuplicateStracks(const std::vector<STrackPtr> &a_stracks,
                                     const std::vector<STrackPtr> &b_stracks,
@@ -45,11 +45,11 @@ namespace byte_track {
                               std::vector<int> &b_unmatched,
                               std::vector<int> &a_unmatched) const;
 
-        std::vector<std::vector<float> > calcIouDistance(const std::vector<STrackPtr> &a_tracks,
-                                                         const std::vector<STrackPtr> &b_tracks) const;
+        [[nodiscard]] std::vector<std::vector<float> > calcIouDistance(const std::vector<STrackPtr> &a_tracks,
+                                                                       const std::vector<STrackPtr> &b_tracks) const;
 
-        std::vector<std::vector<float> > calcIous(const std::vector<Rect<float> > &a_rect,
-                                                  const std::vector<Rect<float> > &b_rect) const;
+        [[nodiscard]] std::vector<std::vector<float> > calcIous(const std::vector<Rect<float> > &a_rect,
+                                                                const std::vector<Rect<float> > &b_rect) const;
 
         double execLapjv(const std::vector<std::vector<float> > &cost,
                          std::vector<int> &rowsol,

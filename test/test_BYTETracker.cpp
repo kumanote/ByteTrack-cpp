@@ -1,4 +1,4 @@
-#include "ByteTrack/BYTETracker.h"
+#include "ByteTrack/LabeledBYTETracker.h"
 
 #include "gtest/gtest.h"
 
@@ -29,6 +29,13 @@ namespace {
         return ret;
     }
 
+    int get_int_data_or_default(const boost::property_tree::ptree &pt, const std::string &key) {
+        if (boost::optional<int> data = pt.get_optional<int>(key)) {
+            return data.get();
+        }
+        return 0;
+    }
+
     std::map<size_t, std::vector<byte_track::Object> > get_inputs_ref(const boost::property_tree::ptree &pt) {
         std::map<size_t, std::vector<byte_track::Object> > inputs_ref;
         BOOST_FOREACH(const boost::property_tree::ptree::value_type &child, pt.get_child("results")) {
@@ -39,12 +46,13 @@ namespace {
             const auto y = get_data<float>(result, "y");
             const auto width = get_data<float>(result, "width");
             const auto height = get_data<float>(result, "height");
+            const auto label = get_int_data_or_default(result, "label");
 
             decltype(inputs_ref)::iterator itr = inputs_ref.find(frame_id);
             if (itr != inputs_ref.end()) {
-                itr->second.emplace_back(byte_track::Rect(x, y, width, height), 0, prob);
+                itr->second.emplace_back(byte_track::Rect(x, y, width, height), label, prob);
             } else {
-                std::vector<byte_track::Object> v(1, {byte_track::Rect(x, y, width, height), 0, prob});
+                std::vector<byte_track::Object> v(1, {byte_track::Rect(x, y, width, height), label, prob});
                 inputs_ref.emplace_hint(inputs_ref.end(), frame_id, v);
             }
         }
@@ -103,13 +111,14 @@ TEST(ByteTrack, BYTETracker) {
         auto outputs_ref = get_outputs_ref(pt_t_results);
 
         // Test BYTETracker::update()
-        byte_track::BYTETracker tracker(fps, track_buffer);
+        byte_track::LabeledBYTETracker tracker(fps, track_buffer);
         for (const auto &[frame_id, objects]: inputs_ref) {
             const auto outputs = tracker.update(objects);
 
             // Verify between the reference data and the output of the BYTETracker impl
             EXPECT_EQ(outputs.size(), outputs_ref[frame_id].size());
-            for (const auto &outputs_per_frame: outputs) {
+            for (const auto &labeled_s_track: outputs) {
+                const auto &outputs_per_frame = labeled_s_track.getSTrack();
                 const auto &rect = outputs_per_frame->getRect();
                 const auto &track_id = outputs_per_frame->getTrackId();
                 const auto &ref = outputs_ref[frame_id][track_id];

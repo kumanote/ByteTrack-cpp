@@ -7,8 +7,7 @@ byte_track::Rect<T>::Rect(const T &x, const T &y, const T &width, const T &heigh
 }
 
 template<typename T>
-byte_track::Rect<T>::~Rect() {
-}
+byte_track::Rect<T>::~Rect() = default;
 
 template<typename T>
 const T &byte_track::Rect<T>::x() const {
@@ -83,10 +82,10 @@ byte_track::Tlbr<T> byte_track::Rect<T>::getTlbr() const {
 template<typename T>
 byte_track::Xyah<T> byte_track::Rect<T>::getXyah() const {
     return {
-        tlwh[0] + tlwh[2] / 2,
-        tlwh[1] + tlwh[3] / 2,
-        tlwh[2] / tlwh[3],
-        tlwh[3],
+        tlwh[0] + tlwh[2] / 2, // x position of bbox center
+        tlwh[1] + tlwh[3] / 2, // y position of bbox center
+        tlwh[2] / tlwh[3], // aspect of bbox
+        tlwh[3], // height of bbox
     };
 }
 
