@@ -1,0 +1,43 @@
+{
+  "name": "YOLOX_ncnn_palace",
+  "fps": 30,
+  "track_buffer": 30,
+  "results": [
+    {
+      "frame_id": "0",
+      "label": "1",
+      "track_id": "1",
+      "x": "387.131",
+      "y": "233.1",
+      "width": "127.913",
+      "height": "289.4"
+    },
+    {
+      "frame_id": "1",
+      "label": "1",
+      "track_id": "1",
+      "x": "389.328",
+      "y": "235.448",
+      "width": "126.461",
+      "height": "286.092"
+    },
+    {
+      "frame_id": "0",
+      "label": "2",
+      "track_id": "1",
+      "x": "542.023",
+      "y": "267.422",
+      "width": "122.867",
+      "height": "255.418"
+    },
+    {
+      "frame_id": "1",
+      "label": "2",
+      "track_id": "1",
+      "x": "542.701",
+      "y": "266.525",
+      "width": "123.55",
+      "height": "256.749"
+    }
+  ]
+}
