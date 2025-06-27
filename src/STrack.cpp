@@ -15,8 +15,7 @@ byte_track::STrack::STrack(const Rect<float> &rect, const float &score) : kalman
                                                                           tracklet_len_(0) {
 }
 
-byte_track::STrack::~STrack() {
-}
+byte_track::STrack::~STrack() = default;
 
 const byte_track::Rect<float> &byte_track::STrack::getRect() const {
     return rect_;

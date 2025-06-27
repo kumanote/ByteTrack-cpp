@@ -1,4 +1,4 @@
-#include "ByteTrack/BYTETracker.h"
+#include "ByteTrack/LabeledBYTETracker.h"
 
 #include "gtest/gtest.h"
 
@@ -15,8 +15,12 @@ namespace {
     const std::string D_RESULTS_FILE = "detection_results.json";
     const std::string T_RESULTS_FILE = "tracking_results.json";
 
-    // key: track_id, value: rect of tracking object
+    const std::string LD_RESULTS_FILE = "labeled_detection_results.json";
+    const std::string LT_RESULTS_FILE = "labeled_tracking_results.json";
+
+    // key: label, value: <key: track_id, value: rect of tracking object>
     using BYTETrackerOut = std::map<size_t, byte_track::Rect<float> >;
+    using LabeledBYTETrackerOut = std::map<size_t, BYTETrackerOut>;
 
     template<typename T>
     T get_data(const boost::property_tree::ptree &pt, const std::string &key) {
@@ -29,6 +33,13 @@ namespace {
         return ret;
     }
 
+    int get_int_data_or_default(const boost::property_tree::ptree &pt, const std::string &key) {
+        if (boost::optional<int> data = pt.get_optional<int>(key)) {
+            return data.get();
+        }
+        return 0;
+    }
+
     std::map<size_t, std::vector<byte_track::Object> > get_inputs_ref(const boost::property_tree::ptree &pt) {
         std::map<size_t, std::vector<byte_track::Object> > inputs_ref;
         BOOST_FOREACH(const boost::property_tree::ptree::value_type &child, pt.get_child("results")) {
@@ -39,52 +50,64 @@ namespace {
             const auto y = get_data<float>(result, "y");
             const auto width = get_data<float>(result, "width");
             const auto height = get_data<float>(result, "height");
+            const auto label = get_int_data_or_default(result, "label");
 
-            decltype(inputs_ref)::iterator itr = inputs_ref.find(frame_id);
-            if (itr != inputs_ref.end()) {
-                itr->second.emplace_back(byte_track::Rect(x, y, width, height), 0, prob);
+            if (auto itr = inputs_ref.find(frame_id); itr != inputs_ref.end()) {
+                itr->second.emplace_back(byte_track::Rect(x, y, width, height), label, prob);
             } else {
-                std::vector<byte_track::Object> v(1, {byte_track::Rect(x, y, width, height), 0, prob});
+                std::vector<byte_track::Object> v(1, {byte_track::Rect(x, y, width, height), label, prob});
                 inputs_ref.emplace_hint(inputs_ref.end(), frame_id, v);
             }
         }
         return inputs_ref;
     }
 
-    std::map<size_t, BYTETrackerOut> get_outputs_ref(const boost::property_tree::ptree &pt) {
-        std::map<size_t, BYTETrackerOut> outputs_ref;
+    std::map<size_t, LabeledBYTETrackerOut> get_outputs_ref(const boost::property_tree::ptree &pt) {
+        std::map<size_t, LabeledBYTETrackerOut> outputs_ref;
         BOOST_FOREACH(const boost::property_tree::ptree::value_type &child, pt.get_child("results")) {
             const boost::property_tree::ptree &result = child.second;
             const auto frame_id = get_data<int>(result, "frame_id");
+            const auto label = get_int_data_or_default(result, "label");
             const auto track_id = get_data<int>(result, "track_id");
             const auto x = get_data<float>(result, "x");
             const auto y = get_data<float>(result, "y");
             const auto width = get_data<float>(result, "width");
             const auto height = get_data<float>(result, "height");
 
-            decltype(outputs_ref)::iterator itr = outputs_ref.find(frame_id);
-            if (itr != outputs_ref.end()) {
-                itr->second.emplace(track_id, byte_track::Rect<float>(x, y, width, height));
+            if (const auto frame_data = outputs_ref.find(frame_id); frame_data != outputs_ref.end()) {
+                // 同一フレームの内容がすでに存在する場合
+                if (const auto label_data = frame_data->second.find(label); label_data != frame_data->second.end()) {
+                    // ラベルデータもすでに存在する場合
+                    label_data->second.emplace(track_id, byte_track::Rect<float>(x, y, width, height));
+                } else {
+                    BYTETrackerOut v{
+                        {track_id, byte_track::Rect(x, y, width, height)},
+                    };
+                    frame_data->second.emplace_hint(frame_data->second.end(), label, v);
+                }
             } else {
                 BYTETrackerOut v{
-                    {track_id, byte_track::Rect<float>(x, y, width, height)},
+                    {track_id, byte_track::Rect(x, y, width, height)},
                 };
-                outputs_ref.emplace_hint(outputs_ref.end(), frame_id, v);
+                LabeledBYTETrackerOut lv{
+                    {label, v}
+                };
+                outputs_ref.emplace_hint(outputs_ref.end(), frame_id, lv);
             }
         }
         return outputs_ref;
     }
 }
 
-TEST(ByteTrack, BYTETracker) {
+TEST(LabeledByteTrack, LabeledBYTETracker) {
     boost::property_tree::ptree pt_d_results;
-    boost::property_tree::read_json(D_RESULTS_FILE, pt_d_results);
+    boost::property_tree::read_json(LD_RESULTS_FILE, pt_d_results);
 
     boost::property_tree::ptree pt_t_results;
-    boost::property_tree::read_json(T_RESULTS_FILE, pt_t_results);
+    boost::property_tree::read_json(LT_RESULTS_FILE, pt_t_results);
 
     try {
-        // Get infomation of reference data
+        // Get information of reference data
         const auto detection_results_name = get_data<std::string>(pt_d_results, "name");
         const auto tracking_results_name = get_data<std::string>(pt_t_results, "name");
         const auto fps = get_data<int>(pt_d_results, "fps");
@@ -103,16 +126,72 @@ TEST(ByteTrack, BYTETracker) {
         auto outputs_ref = get_outputs_ref(pt_t_results);
 
         // Test BYTETracker::update()
-        byte_track::BYTETracker tracker(fps, track_buffer);
+        byte_track::LabeledBYTETracker tracker(fps, track_buffer);
+        for (const auto &[frame_id, objects]: inputs_ref) {
+            const auto outputs = tracker.update(objects);
+            size_t expected_output_size_per_frame = 0;
+            for (const auto &labels: outputs_ref[frame_id]) {
+                expected_output_size_per_frame += labels.second.size();
+            }
+            EXPECT_EQ(outputs.size(), expected_output_size_per_frame);
+            for (const auto &labeled_s_track: outputs) {
+                const auto label = labeled_s_track.getLabel();
+                const auto &outputs_per_frame = labeled_s_track.getSTrack();
+                const auto &rect = outputs_per_frame->getRect();
+                const auto &track_id = outputs_per_frame->getTrackId();
+                const auto &ref = outputs_ref[frame_id][label][track_id];
+                EXPECT_NEAR(ref.x(), rect.x(), EPS);
+                EXPECT_NEAR(ref.y(), rect.y(), EPS);
+                EXPECT_NEAR(ref.width(), rect.width(), EPS);
+                EXPECT_NEAR(ref.height(), rect.height(), EPS);
+            }
+        }
+    } catch (const std::exception &e) {
+        FAIL() << e.what();
+    }
+}
+
+TEST(ByteTrack, LabeledBYTETracker) {
+    boost::property_tree::ptree pt_d_results;
+    boost::property_tree::read_json(D_RESULTS_FILE, pt_d_results);
+
+    boost::property_tree::ptree pt_t_results;
+    boost::property_tree::read_json(T_RESULTS_FILE, pt_t_results);
+
+    try {
+        // Get information of reference data
+        const auto detection_results_name = get_data<std::string>(pt_d_results, "name");
+        const auto tracking_results_name = get_data<std::string>(pt_t_results, "name");
+        const auto fps = get_data<int>(pt_d_results, "fps");
+        const auto track_buffer = get_data<int>(pt_d_results, "track_buffer");
+
+        if (detection_results_name != tracking_results_name) {
+            throw std::runtime_error(
+                "The name of the tests are different: [detection_results_name: " + detection_results_name +
+                ", tracking_results_name: " + tracking_results_name + "]");
+        }
+
+        // Get input reference data from D_RESULTS_FILE
+        const auto inputs_ref = get_inputs_ref(pt_d_results);
+
+        // Get output reference data from T_RESULTS_FILE
+        auto outputs_ref = get_outputs_ref(pt_t_results);
+
+        // Test BYTETracker::update()
+        byte_track::LabeledBYTETracker tracker(fps, track_buffer);
         for (const auto &[frame_id, objects]: inputs_ref) {
             const auto outputs = tracker.update(objects);
 
-            // Verify between the reference data and the output of the BYTETracker impl
-            EXPECT_EQ(outputs.size(), outputs_ref[frame_id].size());
-            for (const auto &outputs_per_frame: outputs) {
+            size_t expected_output_size_per_frame = 0;
+            for (const auto &labels: outputs_ref[frame_id]) {
+                expected_output_size_per_frame += labels.second.size();
+            }
+            for (const auto &labeled_s_track: outputs) {
+                const auto label = labeled_s_track.getLabel();
+                const auto &outputs_per_frame = labeled_s_track.getSTrack();
                 const auto &rect = outputs_per_frame->getRect();
                 const auto &track_id = outputs_per_frame->getTrackId();
-                const auto &ref = outputs_ref[frame_id][track_id];
+                const auto &ref = outputs_ref[frame_id][label][track_id];
                 EXPECT_NEAR(ref.x(), rect.x(), EPS);
                 EXPECT_NEAR(ref.y(), rect.y(), EPS);
                 EXPECT_NEAR(ref.width(), rect.width(), EPS);
